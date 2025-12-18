@@ -300,19 +300,18 @@ class BaseValidatorNeuron(BaseNeuron):
         bt.logging.info(
             "Metagraph updated, re-syncing hotkeys, dendrite pool and moving averages"
         )
-        # Zero out all hotkeys that have been replaced.
-        for uid, hotkey in enumerate(self.hotkeys):
-            if hotkey != self.metagraph.hotkeys[uid]:
-                self.scores[uid] = 0  # hotkey has been replaced
+        # Zero out all hotkeys that have been replaced within overlapping range.
+        overlap = min(len(self.hotkeys), len(self.metagraph.hotkeys))
+        for uid in range(overlap):
+            if self.hotkeys[uid] != self.metagraph.hotkeys[uid]:
+                self.scores[uid] = 0
 
-        # Check to see if the metagraph has changed size.
-        # If so, we need to add new hotkeys and moving averages.
-        if len(self.hotkeys) < len(self.metagraph.hotkeys):
-            # Update the size of the moving average scores.
-            new_moving_average = np.zeros((self.metagraph.n))
-            min_len = min(len(self.hotkeys), len(self.scores))
-            new_moving_average[:min_len] = self.scores[:min_len]
-            self.scores = new_moving_average
+        # Resize scores to match current metagraph size (handle growth and shrink).
+        if len(self.scores) != int(self.metagraph.n):
+            new_scores = np.zeros((self.metagraph.n), dtype=self.scores.dtype)
+            copy_len = min(len(self.scores), int(self.metagraph.n))
+            new_scores[:copy_len] = self.scores[:copy_len]
+            self.scores = new_scores
 
         # Update the hotkeys.
         self.hotkeys = copy.deepcopy(self.metagraph.hotkeys)
